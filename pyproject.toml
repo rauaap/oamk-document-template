@@ -1,0 +1,10 @@
+[project]
+name = "oamk-document-template"
+version = "0.1.0"
+description = "Build reports and theses from Markdown and an ODT template"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.uv]
+package = false
+python-preference = "only-system"
