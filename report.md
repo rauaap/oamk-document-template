@@ -14,26 +14,33 @@ chapter-start: 1
 # subject: Optional document metadata
 # appendix-count: 0
 
-# Optional abstract pages: uncomment only the entries you need.
-# Omit this section entirely for reports without abstracts.
+# Optional abstract pages: uncomment only the entries you need, and the
+# matching {.abstract} sections below. Each entry requires its section.
 # abstract:
 #   supervisor:
 #     - Ohjaajan Nimi
-#   fi:
+#   fi: {}
+#     # Replace {} with entries such as:
 #     # specialisation: Suuntautumisvaihtoehdon nimi
-#     text: |
-#       Kirjoita tähän suomenkielinen tiivistelmä: työn tausta, tavoitteet,
-#       toteutus, keskeiset tulokset ja johtopäätökset.
-#
-#       Tyhjällä rivillä erotat kappaleet. Enimmäispituus on yksi sivu.
 #   en:
 #     title: Thesis title in English
 #     institution: Oulu University of Applied Sciences
 #     degree-programme: Degree Programme in ...
 #     term: Spring
-#     text: |
-#       Write the English abstract here. Maximum length: one page.
 ---
+
+<!--
+# Tiivistelmä {.abstract lang=fi}
+
+Kirjoita tähän suomenkielinen tiivistelmä: työn tausta, tavoitteet,
+toteutus, keskeiset tulokset ja johtopäätökset.
+
+Tyhjällä rivillä erotat kappaleet. Enimmäispituus on yksi sivu.
+
+# Abstract {.abstract lang=en}
+
+Write the English abstract here. Maximum length: one page.
+-->
 
 # Johdanto
 

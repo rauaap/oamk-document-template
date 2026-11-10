@@ -64,7 +64,8 @@ for layout and styles.
 
 ## Optional abstracts
 
-Add `abstract` inside the YAML front matter only when needed:
+An abstract has two parts: its metadata block goes in the YAML front matter,
+and its text goes in the Markdown body. Add both only when needed:
 
 ```yaml
 abstract:
@@ -73,30 +74,40 @@ abstract:
   fi:
     # title, degree-programme, institution, term, year, and author
     # inherit their top-level values unless overridden here.
-    # specialisation: Optional specialisation
-    text: |
-      Tiivistelmän ensimmäinen kappale.
-
-      Tiivistelmän toinen kappale.
+    specialisation: Optional specialisation
   en:
     title: English thesis title
     institution: Oulu University of Applied Sciences
     degree-programme: Degree Programme in Information Technology
     term: Autumn
-    text: |
-      The English abstract goes here.
+```
+
+```markdown
+# Tiivistelmä {.abstract lang=fi}
+
+Tiivistelmän ensimmäinen kappale.
+
+Tiivistelmän toinen kappale.
+
+# Abstract {.abstract lang=en}
+
+The English abstract goes here.
 ```
 
 - Omit `abstract`: no abstract pages. An empty mapping (`abstract: {}`) also
-  produces none. Omit unused language entries instead of leaving them empty.
-- `abstract.fi` produces **TIIVISTELMÄ**; `abstract.en` produces **ABSTRACT**.
-  Either can be used alone. When both exist, Finnish comes first.
-- Abstracts appear after the cover and before the ToC. Each starts on a new page
-  and is included in the ToC without chapter numbering.
-- Each entry requires nonempty `text`. Text is rendered as plain paragraphs with
-  single line spacing; blank lines separate paragraphs. Markdown formatting in
-  abstract text is flattened to plain text. Keep each abstract within one page
-  as required by the mallipohja; the build does not shorten overflowing text.
+  produces none. Use `fi: {}` for an entry that only inherits top-level values.
+- Each front-matter entry (`abstract.fi`, `abstract.en`) requires exactly one
+  body section with the matching `lang`, and each body section requires its
+  front-matter entry. The build fails if either side is missing.
+- An abstract section is a level-1 heading with `{.abstract lang=fi}` or
+  `{.abstract lang=en}`. It ends at the next level-1 heading and may contain only
+  paragraphs (inline formatting such as *italic* is kept). The heading text is
+  used, uppercased.
+- Abstracts appear after the cover and before the ToC, regardless of where the
+  sections are in the Markdown. When both exist, Finnish comes first. Each starts
+  on a new page and is included in the ToC without chapter numbering.
+- Keep each abstract within one page as required by the mallipohja; the build
+  does not shorten overflowing text.
 - Author, title, degree programme, institution, term, and year inherit the
   top-level values. Override translated English values explicitly.
 - `specialisation` is optional. `supervisor` accepts a name or list and can be
@@ -108,8 +119,10 @@ abstract:
   after that total. This is the manually supplied number of appendices, not their
   page count; no automatic appendix detection is implemented.
 
-The starter `report.md` comments out the abstract configuration. Uncomment `fi`
-and/or `en` to enable the corresponding pages, then replace the example text.
+The starter `report.md` comments out the abstract configuration and the example
+sections (inside an HTML comment at the top of the body). Uncomment the `fi`
+and/or `en` entries together with the matching sections, then replace the
+example text.
 
 ## Writing
 

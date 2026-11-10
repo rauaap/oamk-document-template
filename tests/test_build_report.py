@@ -120,18 +120,23 @@ chapter-start: 4
 appendix-count: 2
 abstract:
   supervisor: Test Supervisor
-  fi:
-    text: |
-      Suomenkielinen ensimmäinen kappale.
-
-      Suomenkielinen toinen kappale.
+  fi: {}
   en:
     title: English title
     institution: Oulu University of Applied Sciences
     degree-programme: Information Technology
     term: Spring
-    text: English abstract paragraph.
 ---
+
+# Abstract {.abstract lang=en}
+
+English abstract paragraph.
+
+# Tiivistelmä {.abstract lang=fi}
+
+Suomenkielinen ensimmäinen kappale.
+
+Suomenkielinen *toinen* kappale.
 
 # First chapter
 
@@ -153,7 +158,20 @@ Body.
                               'Spring 2026', 'Suomenkielinen toinen kappale.'):
                     self.assertIn(value, cover_text)
                 self.assertEqual(len(content.getElementsByTagName('text:page-count')), 2)
+                # Front-matter order (fi, en) wins over Markdown order.
                 self.assertLess(cover_text.index('TIIVISTELMÄ'), cover_text.index('ABSTRACT'))
+                self.assertLess(cover_text.index('Suomenkielinen toinen'), cover_text.index('ABSTRACT'))
+                self.assertGreater(cover_text.index('English abstract paragraph.'),
+                                   cover_text.index('Title of thesis'))
+                for p in before_toc:
+                    if text(p) == 'English abstract paragraph.':
+                        self.assertEqual(p.getAttribute('text:style-name'), 'Report_Abstract_en')
+                    if text(p) == 'Suomenkielinen toinen kappale.':
+                        self.assertEqual(p.getAttribute('text:style-name'), 'Report_Abstract_fi')
+                        self.assertTrue(p.getElementsByTagName('text:span'))
+                after_toc = '\n'.join(text(n) for n in children[children.index(toc) + 1:])
+                self.assertNotIn('abstract', after_toc.lower())
+                self.assertNotIn('Suomenkielinen', after_toc)
             refresh(odt, work / 'report.pdf')
             with zipfile.ZipFile(odt) as z:
                 content = DOM.parseString(z.read('content.xml'))
@@ -170,7 +188,8 @@ Body.
             md, odt = work / 'body.md', work / 'report.odt'
             for language, title in [('fi', 'TIIVISTELMÄ'), ('en', 'ABSTRACT')]:
                 with self.subTest(language=language):
-                    md.write_text(f'---\ntitle: Report\nabstract:\n  {language}:\n    text: Summary.\n---\n# Body\n')
+                    md.write_text(f'---\ntitle: Report\nabstract:\n  {language}: {{}}\n---\n'
+                                  f'# {title.title()} {{.abstract lang={language}}}\n\nSummary.\n\n# Body\n')
                     merge(ROOT / 'templates/report.odt', md, odt)
                     with zipfile.ZipFile(odt) as z:
                         content = DOM.parseString(z.read('content.xml'))
@@ -179,12 +198,31 @@ Body.
                         self.assertEqual(headings[-1].getAttribute('text:start-value'), '1')
 
     def test_invalid_abstract_is_rejected(self):
+        cases = [
+            ('abstract:\n  fi:\n    title: Missing body\n', '# Heading\n',
+             r'abstract\.fi is defined in front matter'),
+            ('title: No config\n', '# Abstract {.abstract lang=en}\n\nText.\n',
+             r'needs an abstract\.en entry'),
+            ('abstract:\n  fi:\n    text: Old style\n', '# Heading\n',
+             r'abstract\.fi\.text is no longer supported'),
+            ('abstract:\n  fi: {}\n', '# Tiivistelmä {.abstract lang=fi}\n\n# Body\n',
+             'must not be empty'),
+            ('abstract:\n  fi: {}\n', '# Tiivistelmä {.abstract lang=fi}\n\n- list\n',
+             'may only contain paragraphs'),
+            ('abstract:\n  fi: {}\n', '# Tiivistelmä {.abstract lang=sv}\n\nText.\n',
+             'lang=fi or lang=en'),
+            ('abstract:\n  fi: {}\n',
+             '# A {.abstract lang=fi}\n\nText.\n\n# B {.abstract lang=fi}\n\nText.\n',
+             'Duplicate abstract section'),
+        ]
         with tempfile.TemporaryDirectory() as work:
             work = Path(work)
             md = work / 'body.md'
-            md.write_text('---\nabstract:\n  fi:\n    title: Missing text\n---\n# Heading\n')
-            with self.assertRaisesRegex(ValueError, 'abstract.fi.text'):
-                merge(ROOT / 'templates/report.odt', md, work / 'report.odt')
+            for front, body, error in cases:
+                with self.subTest(error=error):
+                    md.write_text(f'---\n{front}---\n{body}', encoding='utf-8')
+                    with self.assertRaisesRegex(ValueError, error):
+                        merge(ROOT / 'templates/report.odt', md, work / 'report.odt')
 
     def test_missing_metadata_clears_template_author(self):
         with tempfile.TemporaryDirectory() as work:

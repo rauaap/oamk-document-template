@@ -63,13 +63,14 @@ def parse(meta, render, start_override=None):
         entry = abstracts[language]
         if not isinstance(entry, dict):
             raise ValueError(f'abstract.{language} must be a mapping')
+        if 'text' in entry:
+            raise ValueError(f'abstract.{language}.text is no longer supported: write the abstract '
+                             f'in the body under a heading such as # Tiivistelmä {{.abstract lang={language}}}')
         page = {key: scalar(entry, key, fields.get(key, '')) for key in
-                ('title', 'degree-programme', 'institution', 'term', 'year', 'specialisation', 'text')}
+                ('title', 'degree-programme', 'institution', 'term', 'year', 'specialisation')}
         page['author'] = names(entry, 'author') if 'author' in entry else fields['author']
         page['supervisor'] = names(entry, 'supervisor') if 'supervisor' in entry else names(abstracts, 'supervisor')
         page['language'] = language
-        if not page['text'].strip():
-            raise ValueError(f'abstract.{language}.text is required and must not be empty')
         fields['abstracts'].append(page)
     return fields
 
@@ -107,7 +108,52 @@ def populate_cover(content, fields):
         replace(node)
 
 
-def add_abstracts(content, fields):
+def abstract_sections(blocks, fields):
+    """Map each Markdown {.abstract lang=..} section's header id to its language.
+
+    Every front-matter abstract entry needs exactly one matching body section,
+    and vice versa. Sections end at the next level-1 heading and may only
+    contain paragraphs.
+    """
+    sections, paragraphs, current = {}, {}, None
+    for block in blocks:
+        if block['t'] == 'Header' and block['c'][0] == 1:
+            current = None
+        if block['t'] == 'Header' and 'abstract' in block['c'][1][1]:
+            level, (identifier, _, attributes), _ = block['c']
+            language = dict(attributes).get('lang')
+            if level != 1:
+                raise ValueError('Abstract headings must be level-1 (#) headings')
+            if language not in ('fi', 'en'):
+                raise ValueError('Abstract headings need lang=fi or lang=en')
+            if language in paragraphs:
+                raise ValueError(f'Duplicate abstract section for lang={language}')
+            sections[identifier] = current = language
+            paragraphs[language] = 0
+        elif current:
+            if block['t'] not in ('Para', 'Plain'):
+                raise ValueError(f'Abstract section lang={current} may only contain paragraphs')
+            paragraphs[current] += 1
+    for language, count in paragraphs.items():
+        if not count:
+            raise ValueError(f'Abstract section lang={language} must not be empty')
+    configured = [page['language'] for page in fields['abstracts']]
+    for language in configured:
+        if language not in sections.values():
+            raise ValueError(f'abstract.{language} is defined in front matter, but no '
+                             f'# ... {{.abstract lang={language}}} section was found')
+    for language in sections.values():
+        if language not in configured:
+            raise ValueError(f'Abstract section lang={language} needs an abstract.{language} '
+                             f'entry in front matter')
+    return sections
+
+
+def add_abstracts(content, fields, bodies):
+    """Insert abstract pages before the ToC.
+
+    bodies maps each language to (heading text, paragraph nodes) from Markdown.
+    """
     target = content.getElementsByTagName('office:text')[0]
     toc = content.getElementsByTagName('text:table-of-content')[0]
     auto = content.getElementsByTagName('office:automatic-styles')[0]
@@ -147,7 +193,8 @@ def add_abstracts(content, fields):
             target.insertBefore(p, toc)
             return p
 
-        paragraph('TIIVISTELMÄ' if language == 'fi' else 'ABSTRACT', heading=True)
+        heading, body = bodies[language]
+        paragraph(heading, heading=True)
         for key in ('institution', 'degree-programme', 'specialisation'):
             if page[key]:
                 paragraph(page[key])
@@ -168,5 +215,7 @@ def add_abstracts(content, fields):
             else:
                 unit = 'appendix' if fields['appendix-count'] == 1 else 'appendices'
             p.appendChild(content.createTextNode(f" + {fields['appendix-count']} {unit}"))
-        for block in re.split(r'\n\s*\n', page['text'].strip()):
-            paragraph(block.replace('\n', ' '))
+        # Pandoc-rendered paragraphs keep inline formatting; only the style changes.
+        for node in body:
+            node.setAttribute('text:style-name', style_name)
+            target.insertBefore(node, toc)

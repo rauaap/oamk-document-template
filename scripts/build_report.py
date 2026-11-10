@@ -11,9 +11,9 @@ from xml.dom import minidom as DOM
 import zipfile
 
 if __package__:
-    from .front_matter import parse, populate_cover, add_abstracts, set_language
+    from .front_matter import parse, populate_cover, abstract_sections, add_abstracts, set_language
 else:
-    from front_matter import parse, populate_cover, add_abstracts, set_language
+    from front_matter import parse, populate_cover, abstract_sections, add_abstracts, set_language
 
 
 def elements(node):
@@ -41,6 +41,11 @@ def metadata_text(value, ast):
                                    input=json.dumps(document).encode()).decode().strip()
 
 
+def text_of(node):
+    return ''.join(child.data if child.nodeType == child.TEXT_NODE else text_of(child)
+                   for child in node.childNodes)
+
+
 def uppercase_text(node):
     # Only text nodes: preserve link URLs, bookmark IDs, and formatting attributes.
     for child in node.childNodes:
@@ -54,7 +59,8 @@ def merge(template, markdown, output, start=None):
     ast = json.loads(subprocess.check_output(['pandoc', str(markdown), '-f', 'markdown', '-t', 'json']))
     metadata = parse(ast['meta'], lambda value: metadata_text(value, ast), start)
     start = metadata['chapter-start']
-    # Cover and abstracts are generated separately, not by Pandoc's title block.
+    abstracts = abstract_sections(ast['blocks'], metadata)
+    # Cover and abstract metadata are generated separately, not by Pandoc's title block.
     ast['meta'] = {}
     unnumbered = set()
 
@@ -129,7 +135,6 @@ def merge(template, markdown, output, start=None):
             set_language(styles, metadata['lang'])
             set_language(content, metadata['lang'])
             populate_cover(content, metadata)
-            add_abstracts(content, metadata)
 
             # Pandoc list paragraphs inherit Text body (115% spacing). Use a
             # dedicated body-derived style with explicit 150% and zero item gaps.
@@ -151,6 +156,8 @@ def merge(template, markdown, output, start=None):
             while toc.nextSibling:
                 target.removeChild(toc.nextSibling)
             first_numbered = True
+            # Abstract sections are moved before the ToC once the body is merged.
+            abstract_bodies, abstract = {}, None
             for node in elements(first(incoming, 'office:text')):
                 for p in [node] + list(node.getElementsByTagName('*')):
                     if p.getAttribute('text:style-name') in ('Text_20_body', 'First_20_paragraph'):
@@ -164,10 +171,15 @@ def merge(template, markdown, output, start=None):
                             parent = parent.parentNode
                 if node.tagName == 'text:h':
                     marks = node.getElementsByTagName('text:bookmark-start')
-                    is_unnumbered = any(m.getAttribute('text:name') in unnumbered for m in marks)
+                    ids = {m.getAttribute('text:name') for m in marks}
+                    is_unnumbered = bool(ids & unnumbered)
                     level = node.getAttribute('text:outline-level')
                     if level == '1':
                         uppercase_text(node)
+                        abstract = next((abstracts[i] for i in ids if i in abstracts), None)
+                        if abstract:
+                            abstract_bodies[abstract] = (text_of(node), [])
+                            continue
                     if is_unnumbered and level != '1':
                         # A body paragraph, not an outline heading: no numbering,
                         # no ToC entry, no reset of subsequent numbered headings.
@@ -183,7 +195,11 @@ def merge(template, markdown, output, start=None):
                         node.setAttribute('text:restart-numbering', 'true')
                         node.setAttribute('text:start-value', str(start))
                         first_numbered = False
-                target.appendChild(content.importNode(node, True))
+                if abstract:
+                    abstract_bodies[abstract][1].append(content.importNode(node, True))
+                else:
+                    target.appendChild(content.importNode(node, True))
+            add_abstracts(content, metadata, abstract_bodies)
 
             manifest = DOM.parseString(base.read('META-INF/manifest.xml'))
             base_names = set(base.namelist())
