@@ -14,19 +14,36 @@ chapter-start: 1
 # subject: Optional document metadata
 # appendix-count: 0
 
-# Optional abstract pages: uncomment only the entries you need, and the
-# matching {.abstract} sections below. Each entry requires its section.
+# Optional abstract pages: uncomment `abstract:` and the languages you need,
+# and the matching {.abstract} sections below. Each language requires its section.
+# Keys left commented out inherit the top-level values above.
 # abstract:
+#   # Default supervisor(s) for both pages.
 #   supervisor:
 #     - Ohjaajan Nimi
-#   fi: {}
-#     # Replace {} with entries such as:
+#   fi:
+#     # title: Työn otsikko
+#     # author:
+#     #   - Etunimi Sukunimi
+#     # institution: Oulun ammattikorkeakoulu
+#     # degree-programme: Tutkinto-ohjelman nimi
 #     # specialisation: Suuntautumisvaihtoehdon nimi
+#     # term: Kevät
+#     # year: "20XX"
+#     # supervisor:
+#     #   - Ohjaajan Nimi
 #   en:
+#     # Top-level values are Finnish: translate these for the English page.
 #     title: Thesis title in English
 #     institution: Oulu University of Applied Sciences
 #     degree-programme: Degree Programme in ...
 #     term: Spring
+#     # author:
+#     #   - Etunimi Sukunimi
+#     # specialisation: Option of ...
+#     # year: "20XX"
+#     # supervisor:
+#     #   - Supervisor Name
 ---
 
 <!--

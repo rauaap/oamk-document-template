@@ -61,6 +61,8 @@ def parse(meta, render, start_override=None):
         if language not in abstracts:
             continue
         entry = abstracts[language]
+        if entry == '':
+            entry = {}  # A bare `fi:` (all keys commented out) inherits everything.
         if not isinstance(entry, dict):
             raise ValueError(f'abstract.{language} must be a mapping')
         if 'text' in entry:
@@ -160,15 +162,20 @@ def add_abstracts(content, fields, bodies):
     for page in fields['abstracts']:
         language = page['language']
         style_name = 'Report_Abstract_' + language
-        style = content.createElement('style:style')
-        for key, value in [('style:name', style_name), ('style:family', 'paragraph'),
-                           ('style:parent-style-name', 'Tiivistelmän_20_teksti')]:
-            style.setAttribute(key, value)
+        info_style = style_name + '_Info'
         props = content.createElement('style:text-properties')
         props.setAttribute('fo:language', language)
         props.setAttribute('fo:country', 'FI' if language == 'fi' else 'US')
-        style.appendChild(props)
-        auto.appendChild(style)
+        # Body text uses Tiivistelmän teksti; the info block uses the tighter
+        # Opinnäytetyön tiedot (single spacing, no gap between lines).
+        for name, parent in [(style_name, 'Tiivistelmän_20_teksti'),
+                             (info_style, 'Opinnäytetyön_20_tiedot')]:
+            style = content.createElement('style:style')
+            for key, value in [('style:name', name), ('style:family', 'paragraph'),
+                               ('style:parent-style-name', parent)]:
+                style.setAttribute(key, value)
+            style.appendChild(props.cloneNode(True))
+            auto.appendChild(style)
         heading_style = content.createElement('style:style')
         for key, value in [('style:name', style_name + '_Heading'),
                            ('style:family', 'paragraph'),
@@ -185,7 +192,7 @@ def add_abstracts(content, fields, bodies):
 
         def paragraph(value='', heading=False):
             p = content.createElement('text:h' if heading else 'text:p')
-            p.setAttribute('text:style-name', style_name + '_Heading' if heading else style_name)
+            p.setAttribute('text:style-name', style_name + '_Heading' if heading else info_style)
             if heading:
                 p.setAttribute('text:outline-level', '1')
                 p.setAttribute('text:is-list-header', 'true')
@@ -198,6 +205,7 @@ def add_abstracts(content, fields, bodies):
         for key in ('institution', 'degree-programme', 'specialisation'):
             if page[key]:
                 paragraph(page[key])
+        paragraph()  # Blank line before the author group, as in the mallipohja.
         labels = (['Tekijä(t)', 'Opinnäytetyön otsikko', 'Työn ohjaaja(t)',
                    'Työn valmistumislukukausi ja -vuosi', 'Sivumäärä'] if language == 'fi' else
                   ['Author(s)', 'Title of thesis', 'Supervisor(s)',
@@ -215,6 +223,7 @@ def add_abstracts(content, fields, bodies):
             else:
                 unit = 'appendix' if fields['appendix-count'] == 1 else 'appendices'
             p.appendChild(content.createTextNode(f" + {fields['appendix-count']} {unit}"))
+        paragraph()  # Blank line before the abstract text.
         # Pandoc-rendered paragraphs keep inline formatting; only the style changes.
         for node in body:
             node.setAttribute('text:style-name', style_name)

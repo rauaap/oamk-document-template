@@ -120,7 +120,8 @@ chapter-start: 4
 appendix-count: 2
 abstract:
   supervisor: Test Supervisor
-  fi: {}
+  fi:
+    # specialisation: Commented out, so fi is a bare key.
   en:
     title: English title
     institution: Oulu University of Applied Sciences
@@ -169,6 +170,25 @@ Body.
                     if text(p) == 'Suomenkielinen toinen kappale.':
                         self.assertEqual(p.getAttribute('text:style-name'), 'Report_Abstract_fi')
                         self.assertTrue(p.getElementsByTagName('text:span'))
+                # Mallipohja layout: tight info block with two blank separator lines.
+                fi = before_toc[[text(n) for n in before_toc].index('TIIVISTELMÄ') + 1:
+                                [text(n) for n in before_toc].index('ABSTRACT')]
+                self.assertEqual([(n.getAttribute('text:style-name'), text(n)) for n in fi], [
+                    ('Report_Abstract_fi_Info', 'Oulun ammattikorkeakoulu'),
+                    ('Report_Abstract_fi_Info', 'Tietotekniikka'),
+                    ('Report_Abstract_fi_Info', ''),
+                    ('Report_Abstract_fi_Info', 'Tekijä(t): Test Writer'),
+                    ('Report_Abstract_fi_Info', 'Opinnäytetyön otsikko: Example report'),
+                    ('Report_Abstract_fi_Info', 'Työn ohjaaja(t): Test Supervisor'),
+                    ('Report_Abstract_fi_Info', 'Työn valmistumislukukausi ja -vuosi: Kevät 2026'),
+                    ('Report_Abstract_fi_Info', 'Sivumäärä: 0 + 2 liitettä'),
+                    ('Report_Abstract_fi_Info', ''),
+                    ('Report_Abstract_fi', 'Suomenkielinen ensimmäinen kappale.'),
+                    ('Report_Abstract_fi', 'Suomenkielinen toinen kappale.'),
+                ])
+                info = next(s for s in content.getElementsByTagName('style:style')
+                            if s.getAttribute('style:name') == 'Report_Abstract_fi_Info')
+                self.assertEqual(info.getAttribute('style:parent-style-name'), 'Opinnäytetyön_20_tiedot')
                 after_toc = '\n'.join(text(n) for n in children[children.index(toc) + 1:])
                 self.assertNotIn('abstract', after_toc.lower())
                 self.assertNotIn('Suomenkielinen', after_toc)

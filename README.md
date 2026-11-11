@@ -95,7 +95,8 @@ The English abstract goes here.
 ```
 
 - Omit `abstract`: no abstract pages. An empty mapping (`abstract: {}`) also
-  produces none. Use `fi: {}` for an entry that only inherits top-level values.
+  produces none. A bare `fi:` (or `fi: {}`) enables a page that only inherits
+  top-level values.
 - Each front-matter entry (`abstract.fi`, `abstract.en`) requires exactly one
   body section with the matching `lang`, and each body section requires its
   front-matter entry. The build fails if either side is missing.
